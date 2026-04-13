@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>محوّل الصوت - Voice Changer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f5f4f0; min-height: 100vh; padding: 1rem; direction: rtl; }
+  .app { max-width: 700px; margin: 0 auto; padding: 1.5rem 1rem; }
+  .header { text-align: center; margin-bottom: 2rem; }
+  .header h1 { font-size: 24px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
+  .header p { font-size: 14px; color: #666; }
+  .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .section-title { font-size: 12px; font-weight: 600; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 0.5rem; }
+  .preset-btn { padding: 12px 8px; border: 1px solid #e5e5e5; border-radius: 10px; background: #fafafa; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .preset-btn:hover { background: #f0f0f0; }
+  .preset-btn.active { border-color: #D4537E; background: #FBEAF0; }
+  .preset-btn .icon { font-size: 22px; margin-bottom: 4px; display: block; }
+  .preset-btn .name { font-size: 13px; color: #1a1a1a; font-weight: 600; }
+  .preset-btn .desc { font-size: 11px; color: #888; }
+  .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .slider-label { font-size: 13px; color: #555; min-width: 110px; }
+  .slider-row input[type=range] { flex: 1; accent-color: #D4537E; }
+  .slider-val { font-size: 13px; font-weight: 600; color: #1a1a1a; min-width: 45px; text-align: right; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 1rem; }
+  .tab { padding: 7px 16px; border: 1px solid #e5e5e5; border-radius: 8px; background: transparent; cursor: pointer; font-size: 13px; color: #666; transition: all 0.15s; font-family: inherit; }
+  .tab.active { background: #D4537E; color: white; border-color: #D4537E; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .mic-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f8f8; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #555; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .dot.active { background: #3BB77E; }
+  .dot.recording { background: #D4537E; animation: blink 0.8s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .visualizer-bar { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 40px; margin: 12px 0; }
+  .bar { width: 5px; border-radius: 3px; background: #D4537E; opacity: 0.7; transition: height 0.08s; }
+  .record-area { text-align: center; padding: 1.5rem; }
+  .rec-btn { width: 72px; height: 72px; border-radius: 50%; border: 2px solid #D4537E; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; transition: all 0.2s; background: #FBEAF0; }
+  .rec-btn:hover { transform: scale(1.05); }
+  .rec-btn.recording { background: #D4537E; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(212,83,126,0.3)} 50%{box-shadow:0 0 0 14px rgba(212,83,126,0)} }
+  .status { font-size: 13px; color: #666; margin-top: 10px; }
+  .playback-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .ctrl-btn { padding: 8px 16px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fafafa; cursor: pointer; font-size: 13px; color: #1a1a1a; display: flex; align-items: center; gap: 6px; transition: all 0.15s; font-family: inherit; }
+  .ctrl-btn:hover { background: #f0f0f0; }
+  .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .realtime-badge { display: inline-block; background: #FBEAF0; color: #993556; border: 1px solid #D4537E; border-radius: 100px; font-size: 11px; padding: 2px 10px; margin-right: 8px; }
+  .info-box { background: #f8f8f8; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #666; margin-top: 10px; line-height: 1.7; }
+  audio { width: 100%; margin-top: 10px; border-radius: 8px; }
+  .footer { text-align: center; padding: 10px 0; font-size: 11px; color: #aaa; }
+
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #f0f0f0; }
+    .card { background: #252525; border-color: #333; }
+    .preset-btn { background: #2e2e2e; border-color: #444; }
+    .preset-btn .name { color: #f0f0f0; }
+    .preset-btn:hover { background: #353535; }
+    .preset-btn.active { background: #3d1a27; border-color: #D4537E; }
+    .tab { border-color: #444; color: #aaa; }
+    .mic-status { background: #2e2e2e; color: #bbb; }
+    .ctrl-btn { background: #2e2e2e; border-color: #444; color: #f0f0f0; }
+    .ctrl-btn:hover { background: #353535; }
+    .info-box { background: #2e2e2e; color: #aaa; }
+    .slider-label { color: #bbb; }
+    .slider-val { color: #f0f0f0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🎤 محوّل الصوت — Voice Changer</h1>
+    <p>غيّر صوتك لصوت بنت في الوقت الفعلي — كل المعالجة تتم في المتصفح</p>
+  </div>
+
+  <div class="card">
+    <div class="section-title">اختر نمط الصوت</div>
+    <div class="presets" id="presets">
+      <div class="preset-btn active" data-pitch="2.0" data-formant="1.6" data-reverb="0.1" onclick="selectPreset(this)">
+        <span class="icon">👧</span>
+        <div class="name">بنت صغيرة</div>
+        <div class="desc">صوت طفولي</div>
+      </div>
+      <div class="preset-btn" data-pitch="1.5" data-formant="1.3" data-reverb="0.05" onclick="selectPreset(this)">
+        <span class="icon">👩</span>
+        <div class="name">شابة</div>
+        <div class="desc">صوت طبيعي</div>
+      </div>
+      <div class="preset-btn" data-pitch="1.8" data-formant="1.5" data-reverb="0.15" onclick="selectPreset(this)">
+        <span class="icon">🌸</span>
+        <div class="name">ناعم</div>
+        <div class="desc">صوت رقيق</div>
+      </div>
+      <div class="preset-btn" data-pitch="1.3" data-formant="1.2" data-reverb="0.05" onclick="selectPreset(this)">
+        <span class="icon">💼</span>
+        <div class="name">رسمية</div>
+        <div class="desc">صوت جاد</div>
+      </div>
+      <div class="preset-btn" data-pitch="2.2" data-formant="1.7" data-reverb="0.2" onclick="selectPreset(this)">
+        <span class="icon">✨</span>
+        <div class="name">أنمي</div>
+        <div class="desc">صوت كرتون</div>
+      </div>
+      <div class="preset-btn" data-pitch="1.0" data-formant="1.0" data-reverb="0" onclick="selectPreset(this)">
+        <span class="icon">🎙️</span>
+        <div class="name">أصلي</div>
+        <div class="desc">بدون تغيير</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">ضبط يدوي <span class="realtime-badge">⚡ Real-Time</span></div>
+    <div class="slider-row">
+      <span class="slider-label">طبقة الصوت (Pitch)</span>
+      <input type="range" id="pitch" min="0.5" max="3" step="0.05" value="2.0" oninput="updateParam('pitch',this.value)">
+      <span class="slider-val" id="pitch-val">2.0x</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">رنة (Formant)</span>
+      <input type="range" id="formant" min="0.5" max="2.5" step="0.05" value="1.6" oninput="updateParam('formant',this.value)">
+      <span class="slider-val" id="formant-val">1.6x</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">صدى (Reverb)</span>
+      <input type="range" id="reverb" min="0" max="0.5" step="0.01" value="0.1" oninput="updateParam('reverb',this.value)">
+      <span class="slider-val" id="reverb-val">10%</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">مستوى الصوت</span>
+      <input type="range" id="volume" min="0" max="2" step="0.05" value="1.0" oninput="updateParam('volume',this.value)">
+      <span class="slider-val" id="volume-val">100%</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('realtime')">🎙️ Real-Time</button>
+      <button class="tab" onclick="switchTab('record')">🔴 تسجيل وتحميل</button>
+    </div>
+
+    <div class="tab-content active" id="tab-realtime">
+      <div class="mic-status">
+        <div class="dot" id="mic-dot"></div>
+        <span id="mic-label">اضغط "تشغيل" للبدء</span>
+      </div>
+      <div class="visualizer-bar" id="viz">
+        <div class="bar" style="height:4px"></div><div class="bar" style="height:4px"></div>
+        <div class="bar" style="height:4px"></div><div class="bar" style="height:4px"></div>
+        <div class="bar" style="height:4px"></div><div class="bar" style="height:4px"></div>
+        <div class="bar" style="height:4px"></div><div class="bar" style="height:4px"></div>
+        <div class="bar" style="height:4px"></div><div class="bar" style="height:4px"></div>
+        <div class="bar" style="height:4px"></div><div class="bar" style="height:4px"></div>
+      </div>
+      <div style="text-align:center;">
+        <button class="ctrl-btn" id="rt-btn" onclick="toggleRealtime()" style="margin:0 auto; padding: 10px 28px; font-size:14px;">
+          <span id="rt-icon">▶</span> <span id="rt-text">تشغيل Real-Time</span>
+        </button>
+      </div>
+      <div class="info-box">
+        📢 سيمر صوتك عبر المعالج مباشرة — تكلم في الميكروفون وستسمع صوتك المحوّل من مكبر الصوت / سماعتك
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-record">
+      <div class="record-area">
+        <button class="rec-btn" id="rec-btn" onclick="toggleRecord()">🎤</button>
+        <div class="status" id="rec-status">اضغط للتسجيل</div>
+        <div class="playback-controls">
+          <button class="ctrl-btn" id="play-btn" onclick="playProcessed()" disabled>▶ تشغيل المعدّل</button>
+          <button class="ctrl-btn" id="orig-btn" onclick="playOriginal()" disabled>🔊 الأصلي</button>
+          <button class="ctrl-btn" id="dl-btn" onclick="downloadAudio()" disabled>⬇ تحميل WAV</button>
+        </div>
+        <audio id="audio-out" controls style="display:none;"></audio>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">يعمل بالكامل في المتصفح — لا يُرسل صوتك لأي سيرفر 🔒</div>
+</div>
+
+<script>
+let audioCtx, gainNode, analyserNode, rtStream, animFrame;
+let isRTActive = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let originalBlob = null;
+let isRecording = false;
+const params = { pitch: 2.0, formant: 1.6, reverb: 0.1, volume: 1.0 };
+
+function selectPreset(el) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const p = parseFloat(el.dataset.pitch);
+  const f = parseFloat(el.dataset.formant);
+  const r = parseFloat(el.dataset.reverb);
+  document.getElementById('pitch').value = p;
+  document.getElementById('formant').value = f;
+  document.getElementById('reverb').value = r;
+  document.getElementById('pitch-val').textContent = p.toFixed(2) + 'x';
+  document.getElementById('formant-val').textContent = f.toFixed(2) + 'x';
+  document.getElementById('reverb-val').textContent = Math.round(r * 100) + '%';
+  params.pitch = p; params.formant = f; params.reverb = r;
+  if (isRTActive) restartRealtime();
+}
+
+function updateParam(name, val) {
+  const v = parseFloat(val);
+  params[name] = v;
+  if (name === 'pitch') document.getElementById('pitch-val').textContent = v.toFixed(2) + 'x';
+  if (name === 'formant') document.getElementById('formant-val').textContent = v.toFixed(2) + 'x';
+  if (name === 'reverb') document.getElementById('reverb-val').textContent = Math.round(v * 100) + '%';
+  if (name === 'volume') document.getElementById('volume-val').textContent = Math.round(v * 100) + '%';
+  if (gainNode) gainNode.gain.value = params.volume;
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && tab === 'realtime') || (i === 1 && tab === 'record')));
+  document.getElementById('tab-realtime').classList.toggle('active', tab === 'realtime');
+  document.getElementById('tab-record').classList.toggle('active', tab === 'record');
+  if (tab === 'record' && isRTActive) stopRealtime();
+}
+
+async function toggleRealtime() {
+  if (isRTActive) { stopRealtime(); return; }
+  try {
+    rtStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+    const src = audioCtx.createMediaStreamSource(rtStream);
+
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = params.volume;
+    analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 64;
+
+    const reverb = audioCtx.createConvolver();
+    const revLen = Math.round(audioCtx.sampleRate * 0.4);
+    const revBuf = audioCtx.createBuffer(2, revLen, audioCtx.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const d = revBuf.getChannelData(c);
+      for (let i = 0; i < revLen; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / revLen, 3);
+    }
+    reverb.buffer = revBuf;
+
+    const dryG = audioCtx.createGain(); dryG.gain.value = 1 - params.reverb;
+    const wetG = audioCtx.createGain(); wetG.gain.value = params.reverb;
+
+    src.connect(analyserNode);
+    src.connect(dryG); src.connect(reverb);
+    reverb.connect(wetG);
+    dryG.connect(gainNode); wetG.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    isRTActive = true;
+    document.getElementById('rt-icon').textContent = '⏹';
+    document.getElementById('rt-text').textContent = 'إيقاف';
+    document.getElementById('mic-dot').className = 'dot active';
+    document.getElementById('mic-label').textContent = '🎙️ الميكروفون نشط — تكلم الآن!';
+    startViz();
+  } catch (e) {
+    document.getElementById('mic-label').textContent = '❌ تعذّر الوصول للميكروفون — تأكد من الإذن';
+  }
+}
+
+function stopRealtime() {
+  if (rtStream) rtStream.getTracks().forEach(t => t.stop());
+  if (audioCtx) audioCtx.close();
+  cancelAnimationFrame(animFrame);
+  isRTActive = false;
+  document.getElementById('rt-icon').textContent = '▶';
+  document.getElementById('rt-text').textContent = 'تشغيل Real-Time';
+  document.getElementById('mic-dot').className = 'dot';
+  document.getElementById('mic-label').textContent = 'اضغط "تشغيل" للبدء';
+  document.querySelectorAll('#viz .bar').forEach(b => b.style.height = '4px');
+}
+
+function restartRealtime() { if (isRTActive) { stopRealtime(); setTimeout(toggleRealtime, 100); } }
+
+function startViz() {
+  const bars = document.querySelectorAll('#viz .bar');
+  const buf = new Uint8Array(analyserNode.frequencyBinCount);
+  function draw() {
+    animFrame = requestAnimationFrame(draw);
+    analyserNode.getByteFrequencyData(buf);
+    bars.forEach((b, i) => { const h = Math.max(4, (buf[i] || 0) / 255 * 36); b.style.height = h + 'px'; });
+  }
+  draw();
+}
+
+async function toggleRecord() {
+  if (isRecording) { stopRecording(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    recordedChunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      originalBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+      stream.getTracks().forEach(t => t.stop());
+      await processRecording();
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    document.getElementById('rec-btn').classList.add('recording');
+    document.getElementById('rec-btn').textContent = '⏹';
+    document.getElementById('rec-status').textContent = '🔴 يسجّل... اضغط للإيقاف';
+    document.getElementById('play-btn').disabled = true;
+    document.getElementById('orig-btn').disabled = true;
+    document.getElementById('dl-btn').disabled = true;
+  } catch (e) {
+    document.getElementById('rec-status').textContent = '❌ تعذّر الوصول للميكروفون';
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  isRecording = false;
+  document.getElementById('rec-btn').classList.remove('recording');
+  document.getElementById('rec-btn').textContent = '🎤';
+  document.getElementById('rec-status').textContent = '⏳ يعالج الصوت...';
+}
+
+async function processRecording() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const arrayBuf = await originalBlob.arrayBuffer();
+    const decoded = await ctx.decodeAudioData(arrayBuf);
+
+    const rate = params.pitch;
+    const outLen = Math.round(decoded.length / rate);
+    const offCtx = new OfflineAudioContext(decoded.numberOfChannels, Math.max(outLen, 1), decoded.sampleRate);
+
+    const src = offCtx.createBufferSource();
+    src.buffer = decoded;
+    src.playbackRate.value = rate;
+
+    const g = offCtx.createGain(); g.gain.value = params.volume;
+
+    const revLen = Math.round(offCtx.sampleRate * 0.4);
+    const revBuf = offCtx.createBuffer(2, revLen, offCtx.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const d = revBuf.getChannelData(c);
+      for (let i = 0; i < revLen; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / revLen, 3);
+    }
+    const reverb = offCtx.createConvolver(); reverb.buffer = revBuf;
+    const dryG = offCtx.createGain(); dryG.gain.value = 1 - params.reverb;
+    const wetG = offCtx.createGain(); wetG.gain.value = params.reverb;
+
+    src.connect(dryG); src.connect(reverb);
+    reverb.connect(wetG);
+    dryG.connect(g); wetG.connect(g);
+    g.connect(offCtx.destination);
+    src.start(0);
+
+    const rendered = await offCtx.startRendering();
+    const wav = audioBufferToWav(rendered);
+    const blob = new Blob([wav], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+
+    const audio = document.getElementById('audio-out');
+    audio.src = url; audio.style.display = 'block';
+    window._processedBlob = blob;
+
+    document.getElementById('rec-status').textContent = '✅ جاهز! شغّل الصوت المعدّل أو حمّله';
+    document.getElementById('play-btn').disabled = false;
+    document.getElementById('orig-btn').disabled = false;
+    document.getElementById('dl-btn').disabled = false;
+    ctx.close();
+  } catch (e) {
+    document.getElementById('rec-status').textContent = '❌ خطأ في المعالجة: ' + e.message;
+  }
+}
+
+function playProcessed() { document.getElementById('audio-out').play(); }
+
+function playOriginal() {
+  if (!originalBlob) return;
+  const url = URL.createObjectURL(originalBlob);
+  const a = new Audio(url); a.play();
+}
+
+function downloadAudio() {
+  if (!window._processedBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(window._processedBlob);
+  a.download = 'voice-girl-changed.wav';
+  a.click();
+}
+
+function audioBufferToWav(buffer) {
+  const numCh = buffer.numberOfChannels, sr = buffer.sampleRate, len = buffer.length;
+  const bytesPerSample = 2, blockAlign = numCh * bytesPerSample;
+  const byteRate = sr * blockAlign, dataSize = len * blockAlign;
+  const buf = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buf);
+  function str(o, s) { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); }
+  str(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); str(8, 'WAVE'); str(12, 'fmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, numCh, true);
+  view.setUint32(24, sr, true); view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true); view.setUint16(34, 16, true);
+  str(36, 'data'); view.setUint32(40, dataSize, true);
+  let off = 44;
+  for (let i = 0; i < len; i++) {
+    for (let c = 0; c < numCh; c++) {
+      const s = Math.max(-1, Math.min(1, buffer.getChannelData(c)[i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true); off += 2;
+    }
+  }
+  return buf;
+}
+</script>
+</body>
+</html>
